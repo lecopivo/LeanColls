@@ -42,21 +42,13 @@ instance [Seq C τ] [LawfulSeq C τ] : Indexed (FixSize C n) (Fin n) τ where
     , by simp; exact c.hsize ⟩
   ofFn f := ⟨ Seq.ofFn f, by simp ⟩
   toMultiset c := toList c.data
-  fold' := sorry
+  fold := sorry
 
 instance [Seq C τ] [LawfulSeq C τ]: LawfulIndexed (FixSize C n) (Fin n) τ where
   get_ofFn f := by simp [Indexed.ofFn, Indexed.get]
-  get_set_eq := by
-    intros;
+  get_set := by
     simp [Indexed.set, Indexed.get]
     intros; simp [Seq.get_set, Fin.val_eq_val]
-    intros; contradiction
-  get_set_ne := by
-    intros;
-    simp [Indexed.set, Indexed.get]
-    intros; simp [Seq.get_set, Fin.val_eq_val]
-    intros; contradiction
-  update_eq_set_get := by
-    intros
-    simp [Indexed.get, Indexed.update, Indexed.set]
-    intros; sorry
+  get_update := by
+    simp [Indexed.get, Indexed.update]
+    intros; simp [Seq.get_update, Fin.val_eq_val]

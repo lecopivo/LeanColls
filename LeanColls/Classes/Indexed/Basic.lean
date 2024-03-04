@@ -46,62 +46,34 @@ def withIdx (cont : C) : Indexed.WithIdx C := .mk cont
 
 end Indexed
 
-class LawfulIndexed (C ι τ) [Indexed C ι τ] where
+class LawfulIndexed (C ι τ) [DecidableEq ι] [Indexed C ι τ] where
   get_ofFn : ∀ f, Indexed.get (Indexed.ofFn (C := C) f) = f
-  -- TODO: is it better to have `i = j` or substitute? Std substitutes it in
-  get_set_eq : ∀ (cont : C) {i j a},
-    i = j → Indexed.get (Indexed.set cont i a) j = a
-  get_set_ne : ∀ (cont : C) {i j a},
-    i ≠ j → Indexed.get (Indexed.set cont i a) j = Indexed.get cont j
-  update_eq_set_get : ∀ (cont : C) i f,
-    (Indexed.update cont i f) = Indexed.set cont i (f (Indexed.get cont i))
+  get_set : ∀ (cont : C) i a j,
+    Indexed.get (Indexed.set cont i a) j =
+      if i = j then a else Indexed.get cont j
+  get_update : ∀ (cont : C) i f j,
+    Indexed.get (Indexed.update cont i f) j =
+      if i = j then f (Indexed.get cont j) else Indexed.get cont j
 
 namespace Indexed
 
-variable [Indexed C ι τ] [LawfulIndexed C ι τ]
-
-export LawfulIndexed (get_ofFn)
-attribute [simp] get_ofFn
+variable [Indexed C ι τ] [DecidableEq ι] [LawfulIndexed C ι τ]
 
 @[simp] theorem get_set_eq (cont : C)
   : Indexed.get (Indexed.set cont i a) i = a := by
-  simp only [LawfulIndexed.get_set_eq]
+  rw [LawfulIndexed.get_set]; simp
 
-export LawfulIndexed (get_set_ne)
-attribute [simp] get_set_ne
-
-theorem get_set [DecidableEq ι] (cont : C) {i j a}
-  : Indexed.get (Indexed.set cont i a) j =
-    if i = j then a else Indexed.get cont j := by
-  split <;> simp [*]
+@[simp] theorem get_set_ne (cont : C) (h : i ≠ j)
+  : Indexed.get (Indexed.set cont i a) j = Indexed.get cont j := by
+  rw [LawfulIndexed.get_set]; simp [h]
 
 @[simp] theorem get_update_eq (cont : C)
   : Indexed.get (Indexed.update cont i f) i = f (Indexed.get cont i) := by
-  simp[LawfulIndexed.update_eq_set_get]
+  rw [LawfulIndexed.get_update]; simp
 
 @[simp] theorem get_update_ne (cont : C) (h : i ≠ j)
   : Indexed.get (Indexed.update cont i a) j = Indexed.get cont j := by
-  simp[LawfulIndexed.update_eq_set_get,h]
+  rw [LawfulIndexed.get_update]; simp [h]
 
-theorem get_update [DecidableEq ι] (cont : C) {i j f}
-  : Indexed.get (Indexed.update cont i f) j =
-      if i = j then f (Indexed.get cont j) else Indexed.get cont j := by
-  split <;> simp [*]
-
-end Indexed
-
--- JG: I think we should keep things out of LawfulIndexed namespace,
--- but I have it here for when I change the names of the fields and
--- want to add a deprecation warning
-namespace LawfulIndexed
-
-@[deprecated update_eq_set_get]
-abbrev update_set_get := @update_eq_set_get
-
-@[deprecated Indexed.get_set]
-abbrev get_set := @Indexed.get_set
-
-@[deprecated Indexed.get_update]
-abbrev get_update := @Indexed.get_update
-
-end LawfulIndexed
+export LawfulIndexed (get_ofFn)
+attribute [simp] get_ofFn
