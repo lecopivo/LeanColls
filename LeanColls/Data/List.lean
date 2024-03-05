@@ -9,7 +9,7 @@ namespace List
 
 theorem ofFn_def (f : Fin n → α)
   : ofFn f = (Array.ofFn f).data := by
-  rw [←Array.toList_eq]; rfl
+  rw [←Array.toList_eq]; simp[ofFn]
 
 def getCons? : List α → Option (α × List α)
 | [] => none
