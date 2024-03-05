@@ -119,8 +119,12 @@ theorem size_eq_zero_iff_isEmpty (r : Range)
       Nat.lt_iff_add_one_le,
       Nat.sub_add_cancel]
   · simp
-    rw [Nat.sub_eq_zero_iff_le, Nat.le_antisymm_iff]
-    simp only [start_le_stop, true_and]
+    constructor <;> intro h
+    · apply Nat.le_antisymm
+      exact r.start_le_stop
+      have := (Nat.sub_eq_iff_eq_add r.start_le_stop).mp h
+      simp [this]
+    · simp [h]
   · exact le_add_left r.step_pos
 
 
