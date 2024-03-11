@@ -102,21 +102,3 @@ macro x:ident noWs "[" ids:term,* "]" " •= " xi:term : doElem => do
 @[app_unexpander GetElem.getElem] def unexpandIndexedGet : Lean.PrettyPrinter.Unexpander
   | `($(_) $x ($i, $is,*) $_) => `($x[$i:term,$[$is:term],*])
   | _ => throw ()
-
-
-variable {Cont Idx Elem} [Indexed Cont Idx Elem] [Inhabited Elem]
-variable {Cont'} [Indexed Cont' (Fin 10) Elem]
-
-variable (c : Cont) (c' : Cont') (j : Idx) (b : Array Nat) (k : Fin b.size)
-
-#check c[j]
-#check c'[0]
-#check fun i => c[i]
-#check fun i j => (c[i],c[j])
-#check ↿fun i j => (c[i],c[j])
-#check b[k]
-
-example (f : Idx → Elem) :
-  Function.invFun (fun (f : Idx → Elem) => Indexed.ofFn (C:=Cont) f)
-  =
-  fun x i => x[i] := sorry
