@@ -14,7 +14,7 @@ structure Slice (C ι τ) [Indexed C ι τ] (ι') (f : ι' ↪ ι) where
 namespace Slice
 
 def get [Indexed C ι τ] (slice : Slice C ι τ ι' f) (i) :=
-  Indexed.get slice.data (f i)
+  slice.data[f i]
 
 def update [Indexed C ι τ] (slice : Slice C ι τ ι' f) (i' : ι') (g : τ → τ) : Slice C ι τ ι' f :=
   ⟨Indexed.update slice.data (f i') g⟩

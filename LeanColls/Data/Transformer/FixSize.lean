@@ -45,24 +45,24 @@ instance [Seq C τ] [LawfulSeq C τ] : Indexed (FixSize C n) (Fin n) τ where
   fold := sorry
 
 instance [Seq C τ] [LawfulSeq C τ]: LawfulIndexed (FixSize C n) (Fin n) τ where
-  get_ofFn f := by simp [Indexed.ofFn, Indexed.get]
+  get_ofFn f := by simp [Indexed.ofFn, GetElem'.get, getElem]
   get_set_eq := by
     intros;
-    simp [Indexed.set, Indexed.get]
+    simp [Indexed.set, GetElem'.get, getElem]
     intros; simp [Seq.get_set, Fin.val_eq_val]
     intros; contradiction
   get_set_ne := by
     intros;
-    simp [Indexed.set, Indexed.get]
+    simp [Indexed.set, GetElem'.get, getElem]
     intros; simp [Seq.get_set, Fin.val_eq_val]
     intros; contradiction
   get_update_eq := by
     intros
-    simp [Indexed.get, Indexed.update, Indexed.set, Seq.get_update, *]
+    simp [GetElem'.get, getElem, Indexed.update, Indexed.set, Seq.get_update, *]
   get_update_ne := by
     intros
-    simp [Indexed.get, Indexed.update, Indexed.set]
+    simp [GetElem'.get, getElem, Indexed.update, Indexed.set]
     rw [Seq.get_update_ne]
     · simp
-    · simp [Fin.eq_iff_veq] at *
+    · simp [Fin.ext_iff] at *
       simp [*]
