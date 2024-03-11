@@ -19,39 +19,27 @@ namespace Indexed.Notation
 
 open Lean Meta
 
-/-- Assuming `e = X₁ × ... Xₘ` this function returns `#[X₁, ..., Xₘ]`.
 
-You can provide the expected number `n?` of elemnts then this function returns
-`#[X₁, ..., (Xₙ × ... Xₘ)].
+open Lean Elab Term Meta in
+@[inherit_doc getElem]
+elab:max (priority:=high) x:term noWs "[" i:term "]" : term => do
+  try
+    let x ← elabTerm x none
+    let X ← inferType x
+    let Idx ← mkFreshTypeMVar
+    let Elem ← mkFreshTypeMVar
+    let cls := (mkAppN (← mkConstWithFreshMVarLevels ``GetElem') #[X, Idx, Elem])
+    let _ ← synthInstance cls
+    let Dom ← mkFreshExprMVar none
+    let cls := (mkAppN (← mkConstWithFreshMVarLevels ``GetElem) #[X, (← instantiateMVars Idx), Elem, Dom])
+    let instGetElem ← synthInstance cls
+    let i ← elabTerm i Idx
+    let dom ← mkFreshExprMVar (mkAppN Dom #[x,i])
+    dom.mvarId!.assign (.const ``True.intro [])
+    return ← mkAppOptM ``getElem #[X,Idx,Elem,Dom,instGetElem,x,i,dom]
+  catch _ =>
+    return ← elabTerm (← `(getElem $x $i (by get_elem_tactic))) none
 
-Returns none if `n? = 0` or `n? > m` i.e. `e` does not have enough terms.
--/
-private partial def splitProdType (e : Expr) (n? : Option Nat := none)  : Option (Array Expr) :=
-  if n? = .some 0 then
-    none
-  else
-    go e #[]
-  where
-    go (e : Expr) (xs : Array Expr) : Option (Array Expr) :=
-      if .some (xs.size + 1) = n? then
-        xs.push e
-      else
-        if e.isAppOfArity ``Prod 2 then
-          go (e.getArg! 1) (xs.push (e.getArg! 0))
-        else
-          if n?.isNone then
-            xs.push e
-          else
-            .none
-
-/-- Make product element `(x₁, ..., xₙ)` from `#[x₁, ..., xₙ]` -/
-private def mkProdElem (xs : Array Expr) : MetaM Expr :=
-  match xs.size with
-  | 0 => return default
-  | 1 => return xs[0]!
-  | _ =>
-    let n := xs.size
-    xs[0:n-1].foldrM (init:=xs[n-1]!) fun x p => mkAppM ``Prod.mk #[x,p]
 
 
 /-- Turn an array of terms in into a tuple. -/
@@ -72,7 +60,14 @@ This notation also support ranges, `x[:i,j₁:j₂,k]` returns a slice of `x`.
 Note that product is right associated thus `x[i,j,k]`, `x[i,(j,k)]` and `x[(i,j,k)]` result in
 the same expression.
 -/
-syntax:max (name:=indexedGet) (priority:=high) term noWs "[" elemIndex,* "]" : term
+macro:max (name:=indexedGet) (priority:=high+1) x:term noWs "[" i:term ", " is:term,* "]" : term => do
+  let idx ← mkTuple (#[i] ++ is.getElems)
+  `($x[$idx])
+
+-- todo: merge with `indexedGet`
+--       right now I could not figure out how to correctly write down the corresponding macro_rules
+@[inherit_doc indexedGet]
+syntax:max (name:=indexedGetRanges) (priority:=high) term noWs "[" elemIndex "," elemIndex,* "]" : term
 
 
 macro (priority:=high) x:ident noWs "[" ids:term,* "]" " := " xi:term : doElem => do
@@ -104,92 +99,24 @@ macro x:ident noWs "[" ids:term,* "]" " •= " xi:term : doElem => do
   `(doElem| $x:ident := Indexed.update $x $i (fun xi => $xi • xi))
 
 
-
-/-- Elaborated index, it can be either index value or range. -/
-private inductive Index
-  | index (i : Expr)
-  | range (r : Expr)
-
-/-- Returns expression of elaborated index. -/
-private def Index.getExpr (i : Index) : Expr :=
-  match i with
-  | index e => e
-  | range e => e
-
-/-- Is is elaborated index an index value? I.e. not a slice. -/
-private def Index.isIndex (i : Index) : Bool :=
-  match i with
-  | index _ => true
-  | range _ => false
-
-
-open Elab Term
-/-- Elaborate indices.
-
-Returns `.inl` if `ids` does not contain ranges and returns `.inr` otherwise -/
-private def elabIndices (ids : TSyntaxArray ``elemIndex) (Is : Array Expr) :
-    TermElabM (Array Expr ⊕ Array Index) := do
-
-  let mut isSlice := false
-  let mut is : Array Index := #[]
-
-  for id in ids, I in Is do
-    match id with
-    | `(elemIndex| $i:term) => do
-      let i := Index.index (← elabTerm i I)
-      is := is.push i
-    | _ =>
-      isSlice := true
-      throwError "ranges are not yet suppored"
-
-  if ¬isSlice then
-    return .inl (is.map (·.getExpr))
-  else
-    return .inr is
-
-
-open Lean Elab Term Meta Qq in
-elab_rules (kind:=indexedGet) : term <= _expectedType
-| `($x[$ids:elemIndex,*]) => do
-
-  let ids := ids.getElems
-
-  let getElemFallback : TermElabM (Option Expr) := do
-    if ids.size ≠ 1 then
-      return none
-    match ids[0]! with
-    | `(elemIndex| $i:term) => elabTerm (← `(getElem $x $i (by get_elem_tactic))) none
-    | `(elemIndex| $i : $j) => elabTerm (← `(let a := $x; Array.toSubarray a $i $j)) none
-    | `(elemIndex| $i :) => elabTerm (← `(let a := $x; Array.toSubarray a $i a.size)) none
-    | `(elemIndex| : $j) => elabTerm (← `(let a := $x; Array.toSubarray a 0 $j)) none
-    | _ => return none
-
-
-  let x ← elabTerm x none
-  let X ← inferType x
-  let I ← mkFreshTypeMVar
-  let E ← mkFreshTypeMVar
-  let indexed := (mkAppN (← mkConstWithFreshMVarLevels ``Indexed) #[X, I, E])
-  let .some inst ← synthInstance? indexed
-    | if let .some xi ← getElemFallback then
-         return xi
-      else
-        throwError s!"`{← ppExpr x} : {← ppExpr X}` is not indexed type.
-Please provide instance `Indexed {← ppExpr X} ?I ?E`."
-
-  let I ← instantiateMVars I
-  let .some Is := splitProdType I ids.size
-    | throwError "expected {(splitProdType I).getD #[] |>.size} indices to access elements of type `{← ppExpr X}` but {ids.size} are provided"
-
-  match ← elabIndices ids Is with
-    | .inl is =>
-      let i ← mkProdElem is
-      return ← mkAppOptM ``Indexed.get #[X,I,E,inst,x,i]
-    | .inr _is =>
-      throwError "ranges are not yet suppored"
-
-
-@[app_unexpander Indexed.get] def unexpandIndexedGet : Lean.PrettyPrinter.Unexpander
-  | `($(_) $x ($i, $is,*)) => `($x[$i:term,$[$is:term],*])
-  | `($(_) $x $i) => `($x[$i:term])
+@[app_unexpander GetElem.getElem] def unexpandIndexedGet : Lean.PrettyPrinter.Unexpander
+  | `($(_) $x ($i, $is,*) $_) => `($x[$i:term,$[$is:term],*])
   | _ => throw ()
+
+
+variable {Cont Idx Elem} [Indexed Cont Idx Elem] [Inhabited Elem]
+variable {Cont'} [Indexed Cont' (Fin 10) Elem]
+
+variable (c : Cont) (c' : Cont') (j : Idx) (b : Array Nat) (k : Fin b.size)
+
+#check c[j]
+#check c'[0]
+#check fun i => c[i]
+#check fun i j => (c[i],c[j])
+#check ↿fun i j => (c[i],c[j])
+#check b[k]
+
+example (f : Idx → Elem) :
+  Function.invFun (fun (f : Idx → Elem) => Indexed.ofFn (C:=Cont) f)
+  =
+  fun x i => x[i] := sorry

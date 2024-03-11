@@ -26,19 +26,19 @@ structure Indexed.WithIdx (C : Type u) where
 
 class Indexed (C : Type u) (ι : outParam (Type v)) (τ : outParam (Type w))
   extends
+    GetElem' C ι τ,
     MultiBag.ReadOnly C τ
   where
   toMultiBagWithIdx : MultiBag.ReadOnly (Indexed.WithIdx C) (ι × τ)
   /-- Form an instance of the collection type by
     specifying its value at every index. -/
   ofFn : (ι → τ) → C
-  /-- Get the value of a collection at an index. -/
-  get : (cont : C) → (i : ι) → τ
   /-- Apply a function at an index (often done in-place). -/
   update : (cont : C) → (i : ι) → (τ → τ) → C
   /-- Set the value of the function at an index -/
   set : (cont : C) → (i : ι) → τ → C := (update · · <| Function.const _ ·)
   size cont := fold cont (fun acc _ => acc + 1) 0
+
 
 namespace Indexed
 
@@ -47,16 +47,16 @@ def withIdx (cont : C) : Indexed.WithIdx C := .mk cont
 end Indexed
 
 class LawfulIndexed (C ι τ) [Indexed C ι τ] where
-  get_ofFn : ∀ f, Indexed.get (Indexed.ofFn (C := C) f) = f
+  get_ofFn : ∀ f i, (Indexed.ofFn (C := C) f)[i] = f i
   -- TODO: is it better to have `i = j` or substitute? Std substitutes it in
   get_set_eq : ∀ (cont : C) {i j a},
-    i = j → Indexed.get (Indexed.set cont i a) j = a
+    i = j → (Indexed.set cont i a)[j] = a
   get_set_ne : ∀ (cont : C) {i j a},
-    i ≠ j → Indexed.get (Indexed.set cont i a) j = Indexed.get cont j
+    i ≠ j → (Indexed.set cont i a)[j] = cont[j]
   get_update_eq : ∀ (cont : C) i j f,
-    i = j → Indexed.get (Indexed.update cont i f) j = f (Indexed.get cont i)
+    i = j → (Indexed.update cont i f)[j] = f (cont[i])
   get_update_ne : ∀ (cont : C) i j f,
-    i ≠ j → Indexed.get (Indexed.update cont i f) j = Indexed.get cont j
+    i ≠ j → (Indexed.update cont i f)[j] = cont[j]
 
 namespace Indexed
 
@@ -66,27 +66,27 @@ export LawfulIndexed (get_ofFn)
 attribute [simp] get_ofFn
 
 @[simp] theorem get_set_eq (cont : C)
-  : Indexed.get (Indexed.set cont i a) i = a := by
+  : (Indexed.set cont i a)[i] = a := by
   simp only [LawfulIndexed.get_set_eq]
 
 export LawfulIndexed (get_set_ne)
 attribute [simp] get_set_ne
 
 theorem get_set [DecidableEq ι] (cont : C) {i j a}
-  : Indexed.get (Indexed.set cont i a) j =
-    if i = j then a else Indexed.get cont j := by
+  : (Indexed.set cont i a)[j] =
+    if i = j then a else GetElem'.get cont j := by
   split <;> simp [*]
 
 @[simp] theorem get_update_eq (cont : C)
-  : Indexed.get (Indexed.update cont i f) i = f (Indexed.get cont i) := by
+  : (Indexed.update cont i f)[i] = f (cont[i]) := by
   simp [LawfulIndexed.get_update_eq]
 
 export LawfulIndexed (get_update_ne)
 attribute [simp] get_update_ne
 
 theorem get_update [DecidableEq ι] (cont : C) {i j f}
-  : Indexed.get (Indexed.update cont i f) j =
-      if i = j then f (Indexed.get cont j) else Indexed.get cont j := by
+  : (Indexed.update cont i f)[j] =
+      if i = j then f (GetElem'.get cont j) else GetElem'.get cont j := by
   split <;> simp [*]
 
 end Indexed
@@ -98,7 +98,7 @@ namespace LawfulIndexed
 
 @[deprecated Indexed.get_update]
 theorem update_set_get [Fact False] [Indexed C ι τ] (cont : C) (i f) :
-    (Indexed.update cont i f) = Indexed.set cont i (f (Indexed.get cont i)) :=
+    (Indexed.update cont i f) = Indexed.set cont i (f (GetElem'.get cont i)) :=
   False.elim (Fact.elim inferInstance)
 
 @[deprecated Indexed.get_set]

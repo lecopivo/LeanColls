@@ -307,3 +307,16 @@ export Size (size)
 
 instance (priority := low) Size.ofFold [Fold C τ] : Size C where
   size c := Fold.fold c (fun acc _x => acc+1) 0
+
+
+/-- Similar to `GetElem` the only difference is that the index type `ι` is `outParam`.
+Therefore we can infer type index type based on the container type `C`. -/
+class GetElem' (C : Type u) (ι : outParam (Type v)) (τ : outParam (Type w)) where
+  /-- Get the value of a collection at an index. -/
+  get : (cont : C) → (i : ι) → τ
+
+instance GetElem'.instGetElem [GetElem' C ι τ] : GetElem C ι τ (fun _ _ => True) where
+  getElem c i _ := GetElem'.get c i
+
+@[simp] theorem GetElem'.get_normalize {C ι τ} [GetElem' C ι τ] (c : C) (i : ι)
+  : GetElem'.get c i = (c[i] : τ) := by rfl
