@@ -61,3 +61,11 @@ variable (a : Array Nat) (i j : Fin a.size)
 #check a[:i]
 #check a[i:]
 #check a[i:j]
+
+
+-- There used to be clash between `Indexed` and and `GetElem`
+variable
+  {n} {C I} [IndexType (Fin n)] [Indexed C (Fin n) Float]
+  [GetElem C ℕ Float (fun _ i => i < n)]
+
+def foo (x : C) (i : Fin n) : Float := x[i] -- this index access used to fail
