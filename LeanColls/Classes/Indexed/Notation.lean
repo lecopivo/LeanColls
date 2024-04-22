@@ -34,8 +34,7 @@ elab:max (priority:=high) x:term noWs "[" i:term "]" : term => do
     let cls := (mkAppN (← mkConstWithFreshMVarLevels ``GetElem) #[X, (← instantiateMVars Idx), Elem, Dom])
     let instGetElem ← synthInstance cls
     let i ← elabTerm i Idx
-    let dom ← mkFreshExprMVar (mkAppN Dom #[x,i])
-    dom.mvarId!.assign (.const ``True.intro [])
+    let dom ← elabTerm (← `(by get_elem_tactic)) (mkAppN Dom #[x,i])
     return ← mkAppOptM ``getElem #[X,Idx,Elem,Dom,instGetElem,x,i,dom]
   catch _ =>
     return ← elabTerm (← `(getElem $x $i (by get_elem_tactic))) none
