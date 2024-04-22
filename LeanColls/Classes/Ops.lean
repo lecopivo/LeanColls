@@ -3,8 +3,7 @@
 Authors: James Gallicchio
 -/
 
-import Mathlib.Data.Finset.Basic
-import Mathlib.Data.Multiset.Basic
+import LeanColls.MathlibUpstream
 
 /-! ## Collection operations
 
@@ -66,12 +65,22 @@ class LawfulToList (C : Type u) (τ : outParam (Type v))
 
 attribute [simp] LawfulToMultiset.toFinset_toMultiset
 
+namespace ToList
+
 instance [ToList C τ] : ToMultiset C τ where
   toMultiset c := (toList c)
 
 instance [ToList C τ] : LawfulToList C τ where
   toMultiset_toList _ := rfl
 
+def prod [ToList C₁ τ₁] [ToList C₂ τ₂] : ToList (C₁ × C₂) (τ₁ × τ₂) where
+  toList := fun (c1,c2) => toList c1 ×ˢ toList c2
+
+def sum [ToList C₁ τ₁] [ToList C₂ τ₂] : ToList (C₁ × C₂) (τ₁ ⊕ τ₂) where
+  toList := fun (c1,c2) =>
+    (toList c1).map Sum.inl ++ (toList c2).map Sum.inr
+
+end ToList
 
 
 /-! ### Operations Defined Elsewhere -/
@@ -100,8 +109,22 @@ class ToList [ToList C τ] : Prop where
   toList_append : ∀ (c1 c2 : C),
     toList (c1 ++ c2) = toList c1 ++ toList c2
 
+attribute [simp] ToList.toList_append
+
 end Append
 
+export Functor (map)
+
+namespace Functor
+variable (C : Type u → Type v) [Functor C] (τ τ')
+
+class ToList [ToList (C τ) τ] [ToList (C τ') τ'] : Prop where
+  toList_map : ∀ (c : C τ) (f : τ → τ'),
+    toList (Functor.map f c) = Functor.map f (toList c)
+
+attribute [simp] ToList.toList_map
+
+end Functor
 
 
 /-! ### Iteration -/
@@ -115,121 +138,6 @@ class Fold (C : Type u) (τ : outParam (Type v)) where
       (cont : C) → (β → τ → m β) → β → m β
     := fun c f i => fold c (fun macc x => macc >>= fun acc => f acc x) (pure i)
 export Fold (fold foldM)
-
-namespace Fold
-
-variable [Fold C τ]
-
-instance : ForIn m C τ where
-  forIn := fun {β} _ c acc f => do
-    let res ← Fold.foldM (m := ExceptT β m)
-      c (fun x acc =>
-        f acc x >>= fun
-          | .done a => throw a
-          | .yield a => pure a) acc
-    match res with
-    | .ok a => pure a
-    | .error a => pure a
-
-def find (f : τ → Bool) (cont : C) : Option τ :=
-  match
-    Fold.foldM cont (fun () x =>
-      if f x then .error x else .ok ()
-    ) ()
-  with
-  | Except.ok () => none
-  | Except.error x => some x
-
-def any (f : τ → Bool) (cont : C) : Bool :=
-  match
-    Fold.foldM cont (fun () x =>
-      if f x then .error () else .ok ()
-    ) ()
-  with
-  | Except.ok () => false
-  | Except.error () => true
-
-def all (f : τ → Bool) (cont : C) : Bool :=
-  match
-    Fold.foldM cont (fun () x =>
-      if f x then .ok () else .error ()
-    ) ()
-  with
-  | Except.ok () => true
-  | Except.error () => false
-
-instance (priority := low) [Fold C τ] [BEq τ] : Membership τ C where
-  mem x c := any (· == x) c
-
-/-- Correctness of `Fold` with respect to `ToList` -/
-class ToList (C τ) [Fold C τ] [ToList C τ] : Prop where
-  fold_eq_fold_toList : ∀ (c : C) (f) (init : β), ∃ L,
-    List.Perm L (toList c) ∧ fold c f init = List.foldl f init L
-  foldM_eq_foldM_toList : [Monad m] → ∀ (c : C) (f) (init : β), ∃ L,
-    List.Perm L (toList c) ∧ foldM (m := m) c f init = List.foldlM f init L
-
-theorem any_eq_any_toList [LeanColls.ToList C τ] [ToList C τ]
-    (f : τ → Bool) (c : C)
-  : any f c = List.any (toList c) f := by
-  unfold any
-  generalize hf' : (fun _ _ => _) = f'
-  suffices foldM c f' () = Except.error () ↔ List.any (toList c) f by
-    rw [eq_comm]; split
-    · rw [Bool.eq_false_iff]; aesop
-    · aesop
-  have ⟨L,perm,h⟩ := ToList.foldM_eq_foldM_toList c f' ()
-  rw [h]; clear h
-  simp_rw [List.any_eq_true, ← perm.mem_iff]; clear perm c
-  subst hf'
-  induction L with
-  | nil => simp_all [pure, Except.pure]
-  | cons hd tl ih =>
-    simp [bind, Except.bind]
-    by_cases f hd = true <;> simp_all
-
-theorem all_eq_all_toList [LeanColls.ToList C τ] [ToList C τ]
-    (f : τ → Bool) (c : C)
-  : all f c = List.all (toList c) f := by
-  unfold all
-  generalize hf' : (fun _ _ => _) = f'
-  suffices foldM c f' () = Except.ok () ↔ List.all (toList c) f by
-    rw [eq_comm]; split
-    · aesop
-    · rw [Bool.eq_false_iff]; aesop
-  have ⟨L,perm,h⟩ := ToList.foldM_eq_foldM_toList c f' ()
-  rw [h]; clear h
-  simp_rw [List.all_eq_true, ← perm.mem_iff]; clear perm c
-  subst hf'
-  induction L with
-  | nil => simp_all [pure, Except.pure]
-  | cons hd tl ih =>
-    simp [bind, Except.bind]
-    by_cases f hd = true <;> simp_all
-
-@[simp]
-theorem any_iff_exists [Membership τ C] [LeanColls.ToList C τ] [ToList C τ] [Mem.ToList C τ]
-    (f : τ → Bool) (c : C)
-  : any f c ↔ ∃ x ∈ c, f x := by
-  rw [any_eq_any_toList]
-  simp [Mem.ToList.mem_iff_mem_toList]
-
-@[simp]
-theorem all_iff_exists [Membership τ C] [LeanColls.ToList C τ] [ToList C τ] [Mem.ToList C τ]
-    (f : τ → Bool) (c : C)
-  : all f c ↔ ∀ x ∈ c, f x := by
-  rw [all_eq_all_toList]
-  simp [Mem.ToList.mem_iff_mem_toList]
-
-instance [Fold C τ] [BEq τ] [LeanColls.ToList C τ]
-    [ToList C τ] [LawfulBEq τ] : Mem.ToList C τ where
-  mem_iff_mem_toList := by
-    intro x c
-    conv => lhs; simp [Membership.mem]
-    rw [any_eq_any_toList]
-    simp only [List.any_eq_true, beq_iff_eq, exists_eq_right]
-
-end Fold
-
 
 /-- `C` with element type `τ` can be iterated using type `ρ`
 
@@ -252,53 +160,6 @@ class Insert (C : Type u) (τ : outParam (Type v)) where
   insert : (cont : C) → τ → C
   singleton : τ → C := insert empty
 export Insert (empty insert singleton)
-
-namespace Insert
-
-instance [_root_.Insert τ C] [EmptyCollection C] : Insert C τ where
-  empty := EmptyCollection.emptyCollection
-  insert c x := _root_.Insert.insert x c
-
-variable  (C : Type u) (τ : outParam (Type v)) [Insert C τ]
-
-class Mem [Membership τ C] : Prop where
-  mem_empty : ∀ x, ¬ x ∈ empty (C := C)
-  mem_insert : ∀ x (cont : C) y, x ∈ insert cont y ↔ x = y ∨ x ∈ cont
-  mem_singleton : ∀ x y, x ∈ singleton (C := C) y ↔ x = y
-
-class ToMultiset [ToMultiset C τ] : Prop where
-  toMultiset_empty : ToMultiset.toMultiset (empty (C := C)) = {}
-  toMultiset_insert : ∀ (cont : C) x,
-    ToMultiset.toMultiset (insert cont x) = Multiset.cons x (ToMultiset.toMultiset cont)
-  toMultiset_singleton : ∀ x,
-    ToMultiset.toMultiset (singleton (C := C) x) = {x}
-
-instance [Membership τ C] [LeanColls.ToMultiset C τ] [ToMultiset C τ] [Mem.ToMultiset C τ] : Mem C τ where
-  mem_empty := by
-    intro x
-    simp [Mem.ToMultiset.mem_iff_mem_toMultiset, ToMultiset.toMultiset_empty]
-  mem_insert := by
-    intro x c y
-    simp [Mem.ToMultiset.mem_iff_mem_toMultiset, ToMultiset.toMultiset_insert]
-  mem_singleton := by
-    intro x
-    simp [Mem.ToMultiset.mem_iff_mem_toMultiset, ToMultiset.toMultiset_singleton]
-
-@[simp] theorem toList_empty [Membership τ C] [Mem C τ] [ToList C τ] [Mem.ToList C τ]
-  : toList (empty (C := C)) = [] := by
-  rw [List.eq_nil_iff_forall_not_mem]
-  intro x
-  rw [← Mem.ToList.mem_iff_mem_toList]
-  apply Mem.mem_empty
-
-@[simp] theorem toList_singleton [ToList C τ] [LeanColls.ToMultiset C τ] [LawfulToList C τ] [ToMultiset C τ]
-  : toList (singleton (C := C) x) = [x] := by
-  apply Multiset.coe_eq_singleton.mp
-  rw [LawfulToList.toMultiset_toList]
-  rw [ToMultiset.toMultiset_singleton]
-
-end Insert
-
 
 class Size (C : Type u) where
   /-- Number of elements in the collection. -/

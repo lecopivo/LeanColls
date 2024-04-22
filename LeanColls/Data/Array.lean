@@ -44,6 +44,7 @@ instance : Seq (Array α) α where
   insert := Array.push
   singleton := Array.singleton
   fold c f init := Array.foldl f init c
+  foldM c f init := Array.foldlM f init c
   get := Array.get
   set := Array.set
   cons := Array.cons
@@ -125,10 +126,20 @@ instance : LawfulSeq (Array α) α where
     simp [LeanColls.toList, Seq.cons, cons]
   toList_snoc := by
     simp [LeanColls.toList, Seq.snoc, snoc]
-
+  fold_eq_fold_toList := by
+    intro A; use A.toList; refine ⟨.rfl, ?_⟩
+    intros
+    simp [fold, foldl_eq_foldl_data]
+  foldM_eq_fold := by
+    intros
+    simp [fold, foldM]
+    rw [foldlM_eq_foldlM_data, foldl_eq_foldl_data, List.foldlM_eq_foldl]
 end Array
 
-abbrev NArray (α : Type u) (n : Nat) := FixSize (Array α) n
+abbrev ArrayN.{u,w} (α : Type u) (n : Nat) :=
+  FixSize.{u,0,w} (Array α) (Fin n)
+abbrev ArrayI.{u,v,w} (ι : Type u) [IndexType ι] (α : Type v) :=
+  FixSize.{v,u,w} (Array α) ι
 
 /-! ### Scalar Arrays -/
 
@@ -140,6 +151,9 @@ instance : ToList ByteArray UInt8 where
 instance : Fold ByteArray UInt8 where
   fold arr := arr.foldl
   foldM arr := arr.foldlM
+
+instance : Membership UInt8 ByteArray := Fold.toMem
+--instance : Mem.ToList ByteArray UInt8 := Fold.toMem.ToList
 
 instance : Seq ByteArray UInt8 where
   size := size
@@ -161,6 +175,9 @@ instance : ToList FloatArray Float where
 instance : Fold FloatArray Float where
   fold arr := arr.foldl
   foldM arr := arr.foldlM
+
+instance : Membership Float FloatArray := Fold.toMem
+--instance : Mem.ToList FloatArray Float := Fold.toMem.ToList
 
 def append (A1 A2 : FloatArray) : FloatArray :=
   aux A1 0
