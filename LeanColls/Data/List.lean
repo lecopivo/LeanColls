@@ -7,9 +7,6 @@ import Mathlib.Data.List.Lemmas
 
 namespace List
 
-theorem ofFn_def (f : Fin n → α)
-  : ofFn f = (Array.ofFn f).data := rfl
-
 def getCons? : List α → Option (α × List α)
 | [] => none
 | x::xs => some (x,xs)
@@ -80,3 +77,7 @@ theorem length_nonempty (lst : Nonempty α) : lst.toList.length > 0 := by
   cases h : lst.val with
   | nil        => contradiction
   | cons hd tl => simp [Nonempty.toList, h]
+
+theorem singleton_eq_append (x : α) (A B : List α)
+  : [x] = A ++ B ↔ A = [x] ∧ B = [] ∨ A = [] ∧ B = [x] := by
+  cases A <;> aesop

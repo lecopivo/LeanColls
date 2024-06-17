@@ -3,8 +3,8 @@
 Authors: James Gallicchio
 -/
 
-import Std.Data.Array.Lemmas
-import Std.Data.List.Lemmas
+import Batteries.Data.Array.Lemmas
+import Batteries.Data.List.Lemmas
 import Mathlib.Data.Array.Lemmas
 
 import LeanColls.Classes.Seq
@@ -15,6 +15,12 @@ import LeanColls.Data.Transformer.FixSize
 open LeanColls
 
 namespace Array
+
+@[simp]
+def ofFn_data (f : Fin n → α) : (ofFn f).data = List.ofFn f := by
+  apply List.ext_get
+  · simp
+  · simp (config := {contextual := true}) [← Array.getElem_eq_data_get]
 
 def cons (x : α) (A : Array α) : Array α := #[x] ++ A
 
@@ -63,7 +69,7 @@ instance : LawfulSeq (Array α) α where
   size_def := by
     simp [LeanColls.toList, LeanColls.size]
   toList_ofFn := by
-    simp [LeanColls.toList, Seq.ofFn, List.ofFn]
+    simp [LeanColls.toList, Seq.ofFn]
   get_def := by
     rintro c ⟨i,hi⟩
     simp [LeanColls.toList, Seq.get]
@@ -104,18 +110,22 @@ instance : LawfulSeq (Array α) α where
       · simp; simp_all [size_mk]
   getSnoc?_eq_none := by
     simp [LeanColls.toList, Seq.getSnoc?]
-    rintro ⟨L⟩; simp [getSnoc?]; exact List.length_eq_zero
+    rintro ⟨L⟩; simp [getSnoc?]
   getSnoc?_eq_some := by
     rintro ⟨L⟩ x ⟨L'⟩
-    simp [LeanColls.toList, Seq.getSnoc?, getSnoc?]
-    split <;> simp_all [List.length_eq_zero]
-    simp [pop]
-    rw [getElem_eq_data_get, ← List.getLast_eq_get L (List.ne_nil_of_length_pos ‹_›)]
-    constructor
-    · rintro ⟨rfl,rfl⟩
-      simp only [List.dropLast_append_getLast]
-    · rintro rfl
-      simp only [List.dropLast_concat, List.getLast_append, and_self]
+    simp [LeanColls.toList, Seq.getSnoc?, getSnoc?
+        , Array.pop, List.dropLast_append_getLast]
+    rw [← L.reverse_reverse]
+    generalize L.reverse = L
+    cases L with
+    | nil => simp
+    | cons hd tl =>
+    simp [Array.getElem_eq_data_get]
+    rw [List.get_append_right] <;> simp
+    generalize tl.reverse = L
+    rw [List.append_eq_append_iff]
+    simp [List.singleton_eq_append]
+    aesop
   toList_update := by
     rintro ⟨c⟩ ⟨i,h⟩ f
     simp [Seq.update, LeanColls.toList, getElem_eq_data_get]
