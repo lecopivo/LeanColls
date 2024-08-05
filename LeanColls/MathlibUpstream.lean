@@ -194,17 +194,15 @@ theorem List.get_product_fin_pair (L1 : List α) (L2 : List β)
       have : p < L2.length := by rw [hp]; exact j.isLt
       simp [product_cons] at hLL
       subst LL
-      rw [get_append_left]
-      case h => simp [this]
-      simp; congr
+      simp_all [List.getElem_append_left]
     case succ i =>
       specialize @ih i (tl ×ˢ L2) rfl (Fin.pair i j |>.cast (List.length_product ..).symm) rfl
-      simp; rw [← ih]; clear ih
+      simp_all; rw [← ih]; clear ih
       rcases p with ⟨p,h⟩
       simp at hp hLL
       subst p LL
       simp [Nat.add_mul, length_product] at h ⊢
-      rw [get_append_right]
+      rw [List.getElem_append_right]
       case h =>
         simp
         trans i.succ * L2.length
