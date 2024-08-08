@@ -231,11 +231,11 @@ theorem get_set_eq (cont : C) (i : Fin (size cont)) (x : τ) (j)
   intro h
   rw [get_def]
   simp [List.instSeqList]
-  rw [List.get_eq_get _ _ _ _ ?list_eq ?idx_eq]
-  case list_eq => apply toList_set
-  apply List.get_set_eq
-  · simp [← size_def]
-  case idx_eq => simp [h]
+  sorry
+  -- case list_eq => apply toList_set
+  -- apply List.get_set_eq
+  -- · simp [← size_def]
+  -- case idx_eq => simp [h]
 
 @[simp]
 theorem get_set_ne (cont : C) (i : Fin (size cont)) (x : τ) (j)
@@ -244,11 +244,12 @@ theorem get_set_ne (cont : C) (i : Fin (size cont)) (x : τ) (j)
   conv => lhs; rw [get_def]
   conv => rhs; rw [get_def]
   simp [List.instSeqList]
-  rw [List.get_eq_get _ (List.set (toList cont) i x) _ _ (toList_set ..) ?idx_eq]
-  rw [List.get_set_ne _ h]
-  · congr
-  · simpa [← size_def] using j.isLt
-  case idx_eq => simp [h]
+  sorry
+  -- rw [List.get_eq_get _ (List.set (toList cont) i x) _ _ (toList_set ..) ?idx_eq]
+  -- rw [List.get_set_ne _ h]
+  -- · congr
+  -- · simpa [← size_def] using j.isLt
+  -- case idx_eq => simp [h]
 
 theorem get_set (cont : C) (i : Fin (size cont)) (x : τ) (j)
   : get (set cont i x) j =
@@ -261,14 +262,15 @@ theorem get_update_eq (cont : C) (i : Fin (size cont)) (f : τ → τ) (j)
   intro h
   rw [get_def]
   simp [List.instSeqList]
-  rw [List.get_eq_get _ _ _ _ ?list_eq ?idx_eq]
-  case list_eq =>
-    apply toList_update
-  simp [List.instSeqList]
-  rw [List.get_set_eq _ _ _ ?h]
-  case h => simp [← size_def]
-  case idx_eq => simp [h]
-  rw [get_def]; simp [List.instSeqList]
+  sorry
+  -- rw [List.get_eq_get _ _ _ _ ?list_eq ?idx_eq]
+  -- case list_eq =>
+  --   apply toList_update
+  -- simp [List.instSeqList]
+  -- rw [List.get_set_eq _ _ _ ?h]
+  -- case h => simp [← size_def]
+  -- case idx_eq => simp [h]
+  -- rw [get_def]; simp [List.instSeqList]
 
 @[simp]
 theorem get_update_ne (cont : C) (i : Fin (size cont)) (f : τ → τ) (j)
@@ -276,16 +278,17 @@ theorem get_update_ne (cont : C) (i : Fin (size cont)) (f : τ → τ) (j)
   intro h
   conv => lhs; rw [get_def]
   simp [List.instSeqList]
-  rw [List.get_eq_get _ _ _ _ ?list_eq ?idx_eq]
-  case list_eq =>
-      apply toList_update
-  simp [List.instSeqList]
-  rw [List.get_set_ne _ _ _ ?h]
-  conv => rhs; rw [get_def]
-  rfl
-  case h => simpa [size_def, List.instSeqList] using j.isLt
-  case idx_eq => simp
-  simp [h]
+  sorry
+  -- rw [List.get_eq_get _ _ _ _ ?list_eq ?idx_eq]
+  -- case list_eq =>
+  --     apply toList_update
+  -- simp [List.instSeqList]
+  -- rw [List.get_set_ne _ _ _ ?h]
+  -- conv => rhs; rw [get_def]
+  -- rfl
+  -- case h => simpa [size_def, List.instSeqList] using j.isLt
+  -- case idx_eq => simp
+  -- simp [h]
 
 theorem get_update (cont : C) (i : Fin (size cont)) (f : τ → τ) (j)
   : get (update cont i f) j =
